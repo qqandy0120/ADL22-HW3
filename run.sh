@@ -1,0 +1,16 @@
+python summarization/run_summarization.py \
+    --model_name_or_path t5-small \
+    --do_train \
+    --do_eval \
+    --train_file ./cache/train.json \
+    --validation_file ./cache/valid.json \
+    --source_prefix "summarize: " \
+    --output_dir ./cache/tst-summarization \
+    --overwrite_output_dir \
+    --per_device_train_batch_size=2 \
+    --per_device_eval_batch_size=2 \
+    --predict_with_generate=True \
+    --fp16=True \
+    --adafactor=False, \
+    --max_source_length=512 \
+    --max_target_length=128 \

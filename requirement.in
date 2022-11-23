@@ -1,5 +1,5 @@
 torch==1.12.1
-tensorflow==2.5
+tensorflow==2.6
 transformers
 datasets
 accelerate
@@ -12,3 +12,5 @@ tqdm
 pandas
 jsonlines
 protobuf==3.20.0
+pytorch_lightning
+rouge_score
