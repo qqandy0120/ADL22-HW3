@@ -1,0 +1,14 @@
+torch==1.12.1
+tensorflow==2.5
+transformers
+datasets
+accelerate
+sentencepiece
+rouge
+spacy
+nltk
+ckiptagger
+tqdm
+pandas
+jsonlines
+protobuf==3.20.0
