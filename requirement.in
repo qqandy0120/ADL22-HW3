@@ -14,3 +14,4 @@ jsonlines
 protobuf==3.20.0
 pytorch_lightning
 rouge_score
+wandb

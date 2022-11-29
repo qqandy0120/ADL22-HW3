@@ -23,6 +23,7 @@ import os
 import sys
 from dataclasses import dataclass, field
 from typing import Optional
+import torch
 
 import datasets
 import nltk  # Here to have a nice missing dependency error message early on
@@ -50,7 +51,7 @@ from transformers.trainer_utils import get_last_checkpoint
 from transformers.utils import check_min_version, is_offline_mode, send_example_telemetry
 from transformers.utils.versions import require_version
 from tw_rouge import get_rouge
-
+import wandb
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.25.0.dev0")
@@ -293,6 +294,7 @@ summarization_name_mapping = {
 
 
 def main():
+    torch.cuda.empty_cache()
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -519,11 +521,8 @@ def main():
     def preprocess_function(examples):
         # remove pairs where at least one record is None
 
-        inputs, targets = [], []
-        for i in range(len(examples[text_column])):
-            if examples[text_column][i] and examples[summary_column][i]:
-                inputs.append(examples[text_column][i])
-                targets.append(examples[summary_column][i])
+        inputs = [maintext for maintext in examples['text']]
+        targets = [summary for summary in examples['summary']]
 
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=data_args.max_source_length, padding=padding, truncation=True)
@@ -607,17 +606,60 @@ def main():
     metric = evaluate.load("rouge")
 
     def postprocess_text(preds, labels):
-        preds = [pred.strip() for pred in preds]
-        labels = [label.strip() for label in labels]
+        ch_mapping = {
+            ',': '，',
+            '!': '！',
+            ':': '：',
+            '?': '？',
+            '/': '／',
+            '%': '％',
+        }
+        new_preds, new_labels = [], []
+        for pred in preds:
+            pred = pred.strip()
+            for ch in ch_mapping.keys():
+                if ch in pred:
+                    pred = pred.replace(ch, ch_mapping[ch])
+            new_preds.append(pred+'\n')
+        for label in labels:
+            label = label.strip()
+            for ch in ch_mapping.keys():
+                if ch in label:
+                    label = label.replace(ch, ch_mapping[ch])
+            new_labels.append(label+'\n')
 
-        # rougeLSum expects newline after each sentence
-        preds = ["\n".join(nltk.sent_tokenize(pred)) for pred in preds]
-        labels = ["\n".join(nltk.sent_tokenize(label)) for label in labels]
+        return new_preds, new_labels
 
-        return preds, labels
 
     def compute_metrics(eval_preds):
         preds, labels = eval_preds
+        print(f"preds: {preds}")
+        print(f"labels: {labels}")
+        if isinstance(preds, tuple):
+            preds = preds[0]
+        decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
+        if data_args.ignore_pad_token_for_loss:
+            # Replace -100 in the labels as we can't decode them.
+            labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
+        decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+        # Some simple post-processing
+        print(f"decoded_pred: {decoded_preds}")
+        print(f"decode labels: {decoded_labels}")
+        decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
+        result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
+        result = {k: round(v * 100, 4) for k, v in result.items()}
+        prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
+        result["gen_len"] = np.mean(prediction_lens)
+        return result
+    
+    # customize coupute_metrics
+    def customized_compute_metrics(eval_preds):
+        preds, labels = eval_preds
+        # print("----------------------------")
+        # print(f"preds: {preds}")
+        # print(f"labels: {labels}")
+        # print("----------------------------")
         if isinstance(preds, tuple):
             preds = preds[0]
         decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
@@ -628,18 +670,17 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
-
-        result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-        result = {k: round(v * 100, 4) for k, v in result.items()}
+        # print("----------------------------")
+        # print(f"decoded_pred: {decoded_preds}")
+        # print(f"decode labels: {decoded_labels}")
+        # print("----------------------------")
+        result = get_rouge(decoded_preds, decoded_labels)
+        result = {k: round(v['f'] * 100, 4) for k, v in result.items()}
         prediction_lens = [np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds]
         result["gen_len"] = np.mean(prediction_lens)
-        print(result)
         return result
-    
-    # customize coupute_metrics
-    def customized_compute_metrics(eval_preds):
-        ...
 
+    training_args.save_total_limit = 3
     # Initialize our Trainer
     trainer = Seq2SeqTrainer(
         model=model,
@@ -648,7 +689,7 @@ def main():
         eval_dataset=eval_dataset if training_args.do_eval else None,
         tokenizer=tokenizer,
         data_collator=data_collator,
-        compute_metrics=compute_metrics if training_args.predict_with_generate else None,
+        compute_metrics=customized_compute_metrics if training_args.predict_with_generate else None,
     )
 
     # Training

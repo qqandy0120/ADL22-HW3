@@ -5,35 +5,42 @@ from sklearn.model_selection import train_test_split
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from typing import List, Dict
-SPLITS = ['train', 'valid']
+SPLITS = ['train', 'eval']
 def main(args):
-    train_data_path: Path = args.data_dir / 'train.jsonl'
-    with jsonlines.open(train_data_path) as reader:
-        data = [obj for obj in reader]
 
-
-    train, valid = train_test_split(data, test_size=0.1, shuffle=False)
-    org_data = {'train': train, 'valid': valid}
+    data_paths = {split: getattr(args, f'{split}_path') for split in SPLITS}
+    org_datas = {}
+    for split in SPLITS:
+        with jsonlines.open(data_paths[split]) as reader:
+            org_datas[split] = [obj for obj in reader]
     
-    data: Dict[str, List[Dict]] = {split: [{'text': new['maintext'], 'summary': new['title']} for new in org_data[split]] for split in SPLITS}
+    datas = {split: [{'text': new["maintext"], 'summary': new['title']} for new in org_datas[split]] for split in SPLITS}
+
 
     output_paths: Dict[str, Path] = {split: args.output_dir / f'{split}.jsonl' for split in SPLITS}
     output_paths_json: Dict[str, Path] = {split: args.output_dir / f'{split}.json' for split in SPLITS}
 
     for split in SPLITS:
         with jsonlines.open(output_paths[split], mode='w') as writer:
-            for line in data[split]:
+            for line in datas[split]:
                 writer.write(line)
-        output_paths_json[split].write_text(json.dumps(data[split], indent=2, ensure_ascii=False), encoding='utf-8')
+        output_paths_json[split].write_text(json.dumps(datas[split], indent=2, ensure_ascii=False), encoding='utf-8')
+
 
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
-        "--data_dir",
+        "--train_path",
         type=Path,
         help="Directory to the dataset.",
-        default="./data",
+        default="./data/train.jsonl",
+    )
+    parser.add_argument(
+        "--eval_path",
+        type=Path,
+        help="Directory to the dataset.",
+        default="./data/public.jsonl",
     )
     parser.add_argument(
         "--output_dir",

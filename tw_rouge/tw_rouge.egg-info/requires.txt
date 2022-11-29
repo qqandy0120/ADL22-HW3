@@ -1,2 +1,0 @@
-ckiptagger[gdown,tf]
-rouge

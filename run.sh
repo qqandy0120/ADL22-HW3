@@ -1,16 +1,22 @@
 python summarization/run_summarization.py \
-    --model_name_or_path t5-small \
+    --seed 7777777 \
+    --model_name_or_path google/mt5-small \
     --do_train \
     --do_eval \
     --train_file ./cache/train.json \
-    --validation_file ./cache/valid.json \
+    --validation_file ./cache/eval.json \
     --source_prefix "summarize: " \
-    --output_dir ./cache/tst-summarization \
+    --output_dir ./cache/summarization-mt5-len64 \
     --overwrite_output_dir \
-    --per_device_train_batch_size=2 \
-    --per_device_eval_batch_size=2 \
+    --num_train_epochs 20 \
+    --per_device_train_batch_size=1 \
+    --per_device_eval_batch_size=1 \
     --predict_with_generate=True \
+    --max_source_length=256 \
+    --max_target_length=64 \
+    --gradient_accumulation_steps 16 \
+    --evaluation_strategy="steps" \
+    --eval_steps=1500 \
     --fp16=True \
-    --adafactor=False, \
-    --max_source_length=512 \
-    --max_target_length=128 \
+    --optim adafactor \
+    --report_to="wandb" \
