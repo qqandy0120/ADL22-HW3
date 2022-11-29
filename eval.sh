@@ -1,4 +1,4 @@
-python summarization/run_summarization.py \
+python train.py \
     --seed 7777777 \
     --model_name_or_path cache/tst-summarization/checkpoint-21000 \
     --do_predict \
