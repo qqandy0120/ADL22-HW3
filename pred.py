@@ -55,8 +55,6 @@ def main(args):
                 ensure_ascii=False
             )
             f.write('\n')
-            if i == 10:
-                break
 
     
 
