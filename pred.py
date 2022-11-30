@@ -32,24 +32,21 @@ def main(args):
             '/': '／',
             '%': '％',
         }
-        new_preds = []
-        for pred in preds:
-            pred = pred.strip()
-            for ch in ch_mapping.keys():
-                if ch in pred:
-                    pred = pred.replace(ch, ch_mapping[ch])
-            new_preds.append(pred+'\n')
-
-        return new_preds
+        for ch in ch_mapping.keys():
+            if ch in preds:
+                preds = preds.replace(ch, ch_mapping[ch])
+                
+        return preds
 
     padding = 'max_length'
     with open(args.output_path, 'w') as f:
-        for batch in tqdm(dataset):
+        for i, batch in enumerate(tqdm(dataset)):
             inputs = tokenizer(batch['maintext'], max_length=args.max_source_length, padding=padding, return_tensors='pt', truncation=True).to(DEVICE)
             with torch.no_grad():
                 outputs = model.generate(**inputs, max_length=args.max_target_length,num_beams=5,repetition_penalty=2.5)
             decoded_pred = tokenizer.decode(outputs[0], skip_special_tokens=True)
             decoded_pred = postprocess_text(decoded_pred)
+            print(decoded_pred)
 
             json.dump({
                 'title': decoded_pred,
@@ -58,6 +55,8 @@ def main(args):
                 ensure_ascii=False
             )
             f.write('\n')
+            if i == 10:
+                break
 
     
 
@@ -86,7 +85,6 @@ def parse_args():
     parser.add_argument(
         "--output_path",
         type=str,
-        required=True,
         help="path to output file"
     )
     args = parser.parse_args()
