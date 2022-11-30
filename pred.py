@@ -86,6 +86,7 @@ def parse_args():
     parser.add_argument(
         "--output_path",
         type=str,
+        required=True,
         help="path to output file"
     )
     args = parser.parse_args()
