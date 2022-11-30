@@ -11,6 +11,5 @@ ckiptagger
 tqdm
 pandas
 jsonlines
-pytorch_lightning
 rouge_score
 wandb
