@@ -12,6 +12,9 @@ from transformers import (
 )
 from tw_rouge import get_rouge
 SPLITS = ['train', 'eval']
+import os
+
+os.environ['CUDA_VISIBLE_DEVICES'] = "0"
 
 def main(args):
     # clean cache
@@ -30,17 +33,15 @@ def main(args):
     def preprocess_function(examples):
         # remove pairs where at least one record is None
         prefix = ""
-        padding = False
+        padding = 'max_length'
         max_target_length = args.max_target_length
-
-        inputs = [maintext for maintext in examples['text']]
-        targets = [summary for summary in examples['summary']]
+        
+        inputs, targets = examples['maintext'], examples['title']
 
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(inputs, max_length=args.max_source_length, padding=padding, truncation=True)
-
         # Tokenize targets with the `text_target` keyword argument
-        labels = tokenizer(text_target=targets, max_length=max_target_length, padding=padding, truncation=True)
+        labels = tokenizer(targets, max_length=max_target_length, padding=padding, truncation=True)
 
         # If we are padding here, replace all tokenizer.pad_token_id in the labels by -100 when we want to ignore
         # padding in the loss.
@@ -109,6 +110,7 @@ def main(args):
     datasets = {split: datas[split].map(
         preprocess_function,
         batched=True,
+        remove_columns=['date_publish', 'maintext', 'source_domain', 'split', 'title', 'id'],
         desc=f"Running tokenizer on {split} dataset",
     ) for split in SPLITS}
 
@@ -163,77 +165,76 @@ def parse_args():
     parser.add_argument(
         '--model_name_or_path',
         type=str,
-        required=True,
+        default='google/mt5-small'
     )
     parser.add_argument(
         "--do_train",
-        default=False,
         type=bool,
+        default=True,
         help="do train on train dataset"
     )
     parser.add_argument(
         "--do_eval",
-        default=False,
         type=bool,
+        default=True,
         help="do evaluation on eval dataset"
     )
     parser.add_argument(
         "--train_file",
-        default="./cache/train.json",
         type=str,
+        default="./data/train.jsonl",
         help="path to train data"
     )
     parser.add_argument(
         "--eval_file",
-        default="./cache/eval.json",
         type=str,
+        default="./data/public.jsonl",
         help="path to eval data"
     )
     parser.add_argument(
         "--output_dir",
-        default=False,
         type=Path,
-        required=True,
+        default='./cache',
     )
     parser.add_argument(
         "--report_to",
-        default=None,
         type=str,
+        default='wandb',
     )
     parser.add_argument(
         "--num_train_epochs",
-        default=3,
         type=int,
+        default=30,
     )
     parser.add_argument(
         "--per_device_train_batch_size",
-        default=2,
         type=int,
+        default=2,
     )
     parser.add_argument(
         "--per_device_eval_batch_size",
-        default=2,
         type=int,
+        default=2,
     )
     parser.add_argument(
         "--max_source_length",
-        default=512,
         type=int,
+        default=512,
     )
     parser.add_argument(
         "--max_target_length",
-        default=128,
         type=int,
+        default=64,
     )
     parser.add_argument(
         "--fp16",
-        default=True,
         type=bool,
+        default=True,
     )
     parser.add_argument(
         "--gradient_accumulation_steps",
-        default=16,
         type=int,
+        default=16,
     )
     args = parser.parse_args()
     return args

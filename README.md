@@ -1,15 +1,16 @@
 # ADL22-HW3
 
-## Preprocessing data
-### download dataset
-```
-```
-### preprocessing dataset
-```
-python preprocess.py
+## download dataset and trained model
+```bash
+bash download.sh
 ```
 
-## Installation Evaluation Tool
+## train data on mt5-small
+```bash
+python train.py --train_path path/to/train.jsonl --eval_path path/to/public.jsonl
 ```
-pip install -e tw_rouge
+
+## do prediction
+```bash
+run.sh {/path/to/input.jsonl} {/path/to/output.jsonl}
 ```
