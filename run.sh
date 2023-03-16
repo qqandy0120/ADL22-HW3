@@ -1,1 +1,1 @@
-python predict.py --eval_path "${1}" --output_path "${2}"
+python pred.py --eval_path "${1}" --output_path "${2}"
